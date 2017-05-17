@@ -15,6 +15,15 @@ const IFRAME_STYLE = {
   zIndex: 9999,
 };
 
+// 获取实际的文件名称
+function getFileNameFromPath(filePath) {
+  if (!filePath) {
+    return '';
+  }
+  const lastIndex = filePath.lastIndexOf('\\');
+  return filePath.substring(lastIndex + 1);
+}
+
 // diferent from AjaxUpload, can only upload on at one time, serial seriously
 class IframeUploader extends Component {
   static propTypes = {
@@ -63,11 +72,13 @@ class IframeUploader extends Component {
 
   onChange = () => {
     const target = this.getFormInputNode();
+    const filePath = this.getFormInputRealFile(target)
     // ie8/9 don't support FileList Object
     // http://stackoverflow.com/questions/12830058/ie8-input-type-file-get-files
     const file = this.file = {
       uid: getUid(),
-      name: target.value,
+      thumbUrl: filePath,
+      name: getFileNameFromPath(target.value),
     };
     this.startUpload();
     const { props } = this;
@@ -102,7 +113,7 @@ class IframeUploader extends Component {
   }
 
   getIframeDocument() {
-    return this.getIframeNode().contentDocument;
+    return this.getIframeNode().contentDocument || this.getIframeNode().contentWindow.document;
   }
 
   getFormNode() {
@@ -111,6 +122,29 @@ class IframeUploader extends Component {
 
   getFormInputNode() {
     return this.getIframeDocument().getElementById('input');
+  }
+
+  getFocusButton() {
+    return this.getIframeDocument().getElementById('focus-btn');
+  }
+
+  /**
+   * 获取上传文件的实际路径
+   * IE8、9中，默认input file中获取到的是隐藏的路径，只有文件名是正确的
+   * 需要通过selection来获取
+   */
+  getFormInputRealFile(target) {
+    /* IE8 */
+    target.select();
+    /* IE9 */
+    if (window.ScriptEngineMinorVersion
+     && window.ScriptEngineMinorVersion() === 0) {
+      const button = this.getFocusButton()
+      button.focus();
+    }
+
+    const doc = this.getIframeDocument()
+    return doc.selection.createRange().text;
   }
 
   getFormDataNode() {
@@ -149,6 +183,7 @@ class IframeUploader extends Component {
      style="position:absolute;top:0;right:0;height:9999px;font-size:9999px;cursor:pointer;"/>
     ${domainInput}
     <span id="data"></span>
+    <button type="button" id="focus-btn">submit</button>
     </form>
     </body>
     </html>
